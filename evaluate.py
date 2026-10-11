@@ -44,6 +44,8 @@ def evaluate():
         intent_ok += i_pass
         priority_ok += p_pass
         status = ("ok " if i_pass else "INT") + " " + ("ok " if p_pass else "PRI")
+        if not p_pass:
+            print("   flags:", result.model_dump(exclude={"intent", "order_id", "sentiment", "product_category", "needs_human"}))
         print(f"#{i:02d} {status}  got {result.intent}/{result.priority}  "
               f"(want {exp_intent}/{exp_priority})  needs_human={result.needs_human}")
         current[str(i)] = f"{result.intent}/{result.priority}"
