@@ -1,6 +1,5 @@
 import ollama
 from pydantic import ValidationError
-
 from model import TicketAnalysis
 
 MODEL = "llama3.2"
