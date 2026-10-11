@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
+
 from ticket_analysis import analyze
 
 # (ticket text, expected intent, expected priority)
-
 TESTS = [
     ("My package says delivered, but I haven't received anything. I've checked with my neighbors too.", "delivery", 4),
     ("I paid through UPI, but the payment failed and the money was deducted from my bank account.", "payment", 4),
@@ -22,9 +22,6 @@ TESTS = [
     ("The glass bottle arrived shattered, and the liquid has leaked all over the other items in the package.", "product_quality", 4),
 ]
 
-import json
-from pathlib import Path
-
 LAST_RUN = Path("last_run.json")
 
 
@@ -35,19 +32,30 @@ def evaluate():
 
     for i, (text, exp_intent, exp_priority) in enumerate(TESTS, 1):
         result = analyze(text)
+
         if result is None:
             print(f"#{i:02d} FAILED (no valid output)")
             current[str(i)] = "FAILED"
             continue
+
         i_pass = result.intent == exp_intent
         p_pass = result.priority == exp_priority
         intent_ok += i_pass
         priority_ok += p_pass
+
         status = ("ok " if i_pass else "INT") + " " + ("ok " if p_pass else "PRI")
+        print(
+            f"#{i:02d} {status}  got {result.intent}/{result.priority}  "
+            f"(want {exp_intent}/{exp_priority})  needs_human={result.needs_human}"
+        )
+
         if not p_pass:
-            print("   flags:", result.model_dump(exclude={"intent", "order_id", "sentiment", "product_category", "needs_human"}))
-        print(f"#{i:02d} {status}  got {result.intent}/{result.priority}  "
-              f"(want {exp_intent}/{exp_priority})  needs_human={result.needs_human}")
+            true_flags = [
+                k for k, v in result.model_dump().items()
+                if v is True and k != "needs_human"
+            ]
+            print("   true flags:", true_flags)
+
         current[str(i)] = f"{result.intent}/{result.priority}"
 
     changed = [k for k in current if k in previous and current[k] != previous[k]]
@@ -57,7 +65,9 @@ def evaluate():
     n = len(TESTS)
     print(f"\nIntent accuracy:   {intent_ok}/{n}")
     print(f"Priority accuracy: {priority_ok}/{n}")
+
     LAST_RUN.write_text(json.dumps(current))
+
 
 if __name__ == "__main__":
     evaluate()
