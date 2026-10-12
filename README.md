@@ -38,3 +38,23 @@ python -c "from ticket_analysis import evaluate; evaluate()"
 ```
 
 The evaluation makes API calls and prints the sample accuracy.
+
+## Results
+
+| Set | Intent | Priority |
+|---|---|---|
+| Practice (15 tickets, used for tuning) | 15/15 | 13/15 |
+| Held-out (10 unseen tickets, run once) | 7/10 | 7/10 |
+
+Model: llama3.2 (3B) running locally via Ollama.
+
+## Design
+The LLM extracts true/false facts from each ticket. Python code computes priority
+from those facts, so wording inside a ticket cannot set the priority directly.
+Both prompt-injection tests in the held-out set were resisted.
+
+## Known limitations
+- `contacted_support_before` sometimes fires when the customer never said they contacted support.
+- No rule covers a package that arrives with an item missing.
+- Unclear one-line tickets do not reliably set `needs_human`.
+- Evaluated on small sets, so scores are rough estimates.
