@@ -54,11 +54,10 @@ CASES = [
 def error_type(route: str, allowed: set) -> str | None:
     if route in allowed:
         return None
-    if route == "auto_reply":
-        return "UNDER-ESCALATION (automated something it should not have)"
-    if "auto_reply" in allowed:
-        return "over-escalation (a human got a ticket we could have automated)"
-    return "wrong route"
+    rank = {"auto_reply": 0, "ask_for_order_id": 1, "human": 2}
+    if rank[route] < min(rank[a] for a in allowed):
+        return "UNDER-ESCALATION (system did less than it should)"
+    return "over-escalation (safe, but a person or a question was not needed)"
 
 
 def run():
@@ -90,8 +89,8 @@ def run():
             print(f"      LEAK: reply contains {leaked}")
         if err or leaked:
             print(f"      reply: {r.reply}")
-            if r.handoff_note:
-                print(f"      flags: {r.handoff_note['flags']}")
+        if r.handoff_note:
+            print(f"      flags: {r.handoff_note['flags']}")
         print()
 
     n = len(CASES)

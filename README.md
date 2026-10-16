@@ -58,3 +58,21 @@ Both prompt-injection tests in the held-out set were resisted.
 - No rule covers a package that arrives with an item missing.
 - Unclear one-line tickets do not reliably set `needs_human`.
 - Evaluated on small sets, so scores are rough estimates.
+
+## Pipeline results (14 labelled tickets, run once)
+
+| Measure | Result |
+|---|---|
+| Correct route | 11/14 |
+| Dangerous under-escalations | 0 |
+| Reply leaks (another customer's data) | 0 |
+| Over-escalations (safe) | 3 |
+
+Ownership check and prompt-injection tests held.
+
+## Known limitations
+- `contacted_support_before` fires on phrases like "expecting an update" and sometimes with no trigger at all,
+  causing unnecessary escalations. Planned fix: use stored ticket history instead of the model's guess.
+- Plain status questions are sometimes classified `other` instead of `delivery`.
+- Repeat contacts and repeated wrong order IDs are not detected yet (no ticket storage).
+- Evaluated on small hand-written sets, so scores are rough estimates.
