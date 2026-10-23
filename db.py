@@ -1,6 +1,7 @@
+import os
 import sqlite3
 
-DB_PATH = "orders.db"
+DB_PATH = os.environ.get("DB_PATH", "orders.db")
 
 
 def create_database():

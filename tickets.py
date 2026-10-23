@@ -1,7 +1,8 @@
 import sqlite3
+import os
 from datetime import datetime, timezone
 
-DB_PATH = "orders.db"
+DB_PATH = os.environ.get("DB_PATH", "orders.db")
 
 
 def init_tickets_table() -> None:

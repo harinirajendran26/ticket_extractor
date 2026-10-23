@@ -1,6 +1,7 @@
 import sqlite3
+import os
 
-DB_PATH = "orders.db"
+DB_PATH = os.environ.get("DB_PATH", "orders.db")
 
 
 def get_order_status(order_id: str, current_customer_id: str) -> dict:
