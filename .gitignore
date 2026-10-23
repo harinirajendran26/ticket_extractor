@@ -21,4 +21,6 @@ dist/
 .coverage
 htmlcov/
 
+orders.db
 test.db
+last_run.json
