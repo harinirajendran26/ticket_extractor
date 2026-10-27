@@ -1,78 +1,81 @@
-# Ticket Extractor
+# Support Ticket Assistant
 
-Analyze customer support tickets with the Anthropic API and validate the
-structured result with Pydantic.
+An AI system that reads customer support tickets, looks up the order, and either
+answers automatically or hands the ticket to a human agent.
 
-## Requirements
+Built to practise safe LLM engineering: the model extracts facts, and code makes the decisions.
 
-- Python 3.10 or newer
-- An Anthropic API key
+## How it works
 
-## Install
-
-From the project directory, create and activate a virtual environment, then
-install the Python dependencies:
-
-```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+```
+ticket -> [1] Analyzer (LLM extracts facts)
+       -> [2] Order lookup (SQLite, scoped to the logged-in customer)
+       -> [3] Decider (rules in code)
+       -> auto reply, ask for the order ID, or hand off to a human
 ```
 
-Set the API key in PowerShell before running the analysis:
-
-```powershell
-$env:ANTHROPIC_API_KEY = "your-api-key"
-```
-
-The environment variable is available only in the current PowerShell session.
-Do not commit API keys to source control.
-
-## Run
-
-Run the included sample evaluation:
-
-```powershell
-python -c "from ticket_analysis import evaluate; evaluate()"
-```
-
-The evaluation makes API calls and prints the sample accuracy.
+- **Analyzer:** a local LLM (llama3.2 via Ollama) fills a pydantic form of true/false facts
+  (for example `wrong_charge`, `package_lost`). It does not decide priority.
+- **Priority:** computed in Python from those facts, so wording inside a ticket cannot set it.
+- **Order ID:** found with a regex, not by the LLM.
+- **Repeat contact:** read from a stored ticket history, not guessed by the model.
+- **Decider:** an allowlist. Only delivery-status questions are answered automatically.
+  Everything else (refunds, payments, legal threats, anything unclear) goes to a human.
+- **Replies:** templates filled from the order record, so the model cannot invent facts
+  such as delivery dates.
+- **Security:** customer identity comes from a login token created by the server, never from
+  the ticket text. Another customer's order returns the same "not found" message as a missing one.
 
 ## Results
 
-| Set | Intent | Priority |
-|---|---|---|
-| Practice (15 tickets, used for tuning) | 15/15 | 13/15 |
-| Held-out (10 unseen tickets, run once) | 7/10 | 7/10 |
-
-Model: llama3.2 (3B) running locally via Ollama.
-
-## Design
-The LLM extracts true/false facts from each ticket. Python code computes priority
-from those facts, so wording inside a ticket cannot set the priority directly.
-Both prompt-injection tests in the held-out set were resisted.
-
-## Known limitations
-- `contacted_support_before` sometimes fires when the customer never said they contacted support.
-- No rule covers a package that arrives with an item missing.
-- Unclear one-line tickets do not reliably set `needs_human`.
-- Evaluated on small sets, so scores are rough estimates.
-
-## Pipeline results (14 labelled tickets, run once)
-
-| Measure | Result |
+| Test | Result |
 |---|---|
-| Correct route | 11/14 |
-| Dangerous under-escalations | 0 |
-| Reply leaks (another customer's data) | 0 |
-| Over-escalations (safe) | 3 |
+| Analyzer, practice set (15 tickets, used for tuning) | intent 15/15, priority 13/15 |
+| Analyzer, held-out set (10 unseen tickets, run once) | intent 7/10, priority 7/10 |
+| Full pipeline, 17 labelled tickets | 16/17 correct routes |
+| Pipeline: wrong automatic replies | 0 |
+| Pipeline: data leaked between customers | 0 |
 
-Ownership check and prompt-injection tests held.
+Both prompt-injection tests resisted. The practice-set score is optimistic because prompts were tuned
+against those tickets; the held-out score is the honest one.
 
 ## Known limitations
-- `contacted_support_before` fires on phrases like "expecting an update" and sometimes with no trigger at all,
-  causing unnecessary escalations. Planned fix: use stored ticket history instead of the model's guess.
-- Plain status questions are sometimes classified `other` instead of `delivery`.
-- Repeat contacts and repeated wrong order IDs are not detected yet (no ticket storage).
-- Evaluated on small hand-written sets, so scores are rough estimates.
+
+- Small hand-written test sets, so scores are rough estimates.
+- A 3B local model sometimes sets facts wrongly (for example `person_hurt` on a legal threat).
+  Wrong facts only add escalation, so these failures are safe but cost agent time.
+- A simple status question written in lowercase ("whats the status of od123") was sent to a human.
+- The "delivered but not received" rule uses a fixed phrase list, tested on one wording.
+- Repeat contacts never expire, so an old ticket about an order still counts as a repeat.
+- Login tokens never expire, and demo passwords are for testing only.
+- The MCP server (`mcp_server.py`) starts and exposes one tool, but no client is built yet.
+- The ticket-history reset button on the page is a demo shortcut.
+
+## Run it
+
+1. Install [Ollama](https://ollama.com), then run `ollama pull llama3.2`.
+2. `pip install -r requirements.txt`
+3. `python db.py` (creates sample orders)
+4. `python try_auth.py` (creates demo users C1/pass1 and C2/pass2)
+5. `uvicorn api:app`
+6. In a second terminal: `streamlit run app.py`
+
+## Tests
+
+- `python test_pipeline.py` runs the end-to-end routing tests.
+- `python test_decide.py` tests the routing rules without an LLM.
+- Set `DB_PATH=test.db` so tests do not touch live data.
+
+## Files
+
+| File | Job |
+|---|---|
+| `model.py` | The form the LLM fills, plus the priority rules |
+| `ticket_analysis.py` | Sends a ticket to the LLM and validates the result |
+| `lookup.py` | Order lookup with the ownership check |
+| `tickets.py` | Ticket history |
+| `decide.py` | Routing rules |
+| `pipeline.py` | Connects everything |
+| `auth.py`, `api.py` | Login and the web API |
+| `app.py` | Streamlit page |
+| `mcp_server.py` | The order lookup exposed as an MCP tool |
